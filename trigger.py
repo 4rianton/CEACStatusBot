@@ -1,10 +1,8 @@
-import datetime
 import json
 import os
 import subprocess
 
 from dotenv import load_dotenv
-import pytz
 
 from CEACStatusBot import (
     EmailNotificationHandle,
@@ -65,16 +63,6 @@ def download_artifact():
         _ensure_status_file()
 
 
-def _should_run_now() -> bool:
-    timezone = "Europe/Paris"
-    allowed_hours = {8, 12, 16, 20}
-    now = datetime.datetime.now(pytz.timezone(timezone))
-
-    if now.weekday() == 6:
-        return False
-    return now.hour in allowed_hours
-
-
 if not os.path.exists("status_record.json"):
     download_artifact()
 
@@ -113,7 +101,4 @@ else:
 
 
 # --- Send notifications ---
-if _should_run_now():
-    notificationManager.send(force_notify=True)
-else:
-    print("Outside scheduled window; skipping status check.")
+notificationManager.send(force_notify=True)

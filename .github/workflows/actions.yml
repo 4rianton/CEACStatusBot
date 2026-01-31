@@ -10,7 +10,7 @@ on:
       - main
   workflow_dispatch:
   schedule:
-    - cron: '0 * * * 1-6' # Every hour, Monday-Saturday (UTC)
+    - cron: '0 7,11,15,19 * * 1-6' # 08/12/16/20 CET in winter; shifts +1h in summer (UTC)
 
 jobs:
   build:
