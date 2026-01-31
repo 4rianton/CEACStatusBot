@@ -43,7 +43,7 @@ class NotificationManager:
     def addHandle(self, notificationHandle: NotificationHandle) -> None:
         self.__handleList.append(notificationHandle)
 
-    def send(self) -> None:
+    def send(self, *, force_notify: bool = False) -> None:
         res = query_status(
             self.__location,
             self.__number,
@@ -60,8 +60,15 @@ class NotificationManager:
         statuses = self.__load_statuses()
 
         # Check if the current status is different from the last recorded status
-        if not statuses or current_status != statuses[-1].get("status", None) or current_last_updated != statuses[-1].get("last_updated", None):
+        is_changed = not statuses or current_status != statuses[-1].get("status", None) or current_last_updated != statuses[-1].get("last_updated", None)
+        if is_changed:
             self.__save_current_status(current_status, current_last_updated)
+
+        if force_notify:
+            self.__send_notifications(res)
+            return
+
+        if is_changed:
             self.__send_notifications(res)
         else:
             print("Status unchanged. No notification sent.")
