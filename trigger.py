@@ -17,29 +17,51 @@ else:
     print(".env not found, using system environment only")
 
 
+def _ensure_status_file():
+    if not os.path.exists("status_record.json"):
+        with open("status_record.json", "w") as file:
+            json.dump({"statuses": []}, file)
+
+
+def _get_github_token():
+    return os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
+
+
 def download_artifact():
+    repo = os.getenv("GITHUB_REPOSITORY")
+    if not repo:
+        print("GITHUB_REPOSITORY not set; skipping artifact download.")
+        _ensure_status_file()
+        return
+
+    token = _get_github_token()
+    if not token:
+        print("No GitHub token available; skipping artifact download.")
+        _ensure_status_file()
+        return
+
+    env = os.environ.copy()
+    env["GH_TOKEN"] = token
+
     try:
         result = subprocess.run(
-            ["gh", "api", f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/artifacts"],
+            ["gh", "api", f"repos/{repo}/actions/artifacts"],
             capture_output=True,
             text=True,
+            check=True,
+            env=env,
         )
-        artifacts = json.loads(result.stdout)
-        artifact_exists = any(artifact["name"] == "status-artifact" for artifact in artifacts["artifacts"])
+        artifacts = json.loads(result.stdout or "{}")
+        artifact_exists = any(artifact["name"] == "status-artifact" for artifact in artifacts.get("artifacts", []))
 
         if artifact_exists:
-            subprocess.run(["gh", "run", "download", "--name", "status-artifact"], check=True)
+            subprocess.run(["gh", "run", "download", "--name", "status-artifact"], check=True, env=env)
         else:
-            with open("status_record.json", "w") as file:
-                json.dump({"statuses": []}, file)
+            _ensure_status_file()
     except Exception as e:
         print(f"Error downloading artifact: {e}")
+        _ensure_status_file()
 
-
-# --- Read env vars with fallback ---
-GH_TOKEN = os.getenv("GH_TOKEN")
-if not GH_TOKEN:
-    print("GH_TOKEN not found")
 
 if not os.path.exists("status_record.json"):
     download_artifact()

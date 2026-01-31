@@ -1,12 +1,16 @@
 name: run main.py
 
+permissions:
+  contents: read
+  actions: read
+
 on:
   push:
     branches:
       - main
   workflow_dispatch:
   schedule:
-    - cron: '17 * * * *' # At 00:00 on Monday
+    - cron: '17 * * * *' # At minute 17 of every hour (UTC)
 
 jobs:
   build:
@@ -49,7 +53,7 @@ jobs:
           SMTP: ${{ secrets.SMTP }}
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: uv run trigger.py
 
