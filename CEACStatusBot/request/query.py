@@ -1,3 +1,4 @@
+import os
 import requests
 from bs4 import BeautifulSoup
 import time
@@ -10,6 +11,19 @@ def query_status(location, application_num, passport_number, surname, captchaHan
         "success": False,
     }
     backupTime = 5
+    debug_html = os.getenv("CEAC_DEBUG_HTML", "").strip().lower() in {"1", "true", "yes", "y", "on"}
+
+    def dump_debug(label: str, html_text: str) -> None:
+        if not debug_html:
+            return
+        ts = time.strftime("%Y%m%d_%H%M%S", time.localtime())
+        path = f"ceac_debug_{label}_{ts}.html"
+        try:
+            with open(path, "w", encoding="utf-8") as file:
+                file.write(html_text)
+            print(f"Saved debug HTML to {path}")
+        except Exception as exc:
+            print(f"Failed to save debug HTML: {exc}")
 
     while failCount < 5:
         if failCount > 0:
@@ -99,17 +113,36 @@ def query_status(location, application_num, passport_number, surname, captchaHan
             continue
 
         soup = BeautifulSoup(r.text, features="lxml")
+        def _text(tag):
+            return tag.get_text(strip=True) if tag else ""
+
         status_tag = soup.find("span", id="ctl00_ContentPlaceHolder1_ucApplicationStatusView_lblStatus")
-        if not status_tag:
+        status = _text(status_tag)
+        if not status:
+            print("Status not found in response, retrying.")
+            dump_debug("missing_status", r.text)
             continue
 
-        application_num_returned = soup.find("span", id="ctl00_ContentPlaceHolder1_ucApplicationStatusView_lblCaseNo").string
-        assert application_num_returned == application_num
-        status = status_tag.string
-        visa_type = soup.find("span", id="ctl00_ContentPlaceHolder1_ucApplicationStatusView_lblAppName").string
-        case_created = soup.find("span", id="ctl00_ContentPlaceHolder1_ucApplicationStatusView_lblSubmitDate").string
-        case_last_updated = soup.find("span", id="ctl00_ContentPlaceHolder1_ucApplicationStatusView_lblStatusDate").string
-        description = soup.find("span", id="ctl00_ContentPlaceHolder1_ucApplicationStatusView_lblMessage").string
+        app_num_tag = soup.find("span", id="ctl00_ContentPlaceHolder1_ucApplicationStatusView_lblCaseNo")
+        application_num_returned = _text(app_num_tag)
+        if not application_num_returned:
+            print("Case number not found in response, retrying.")
+            dump_debug("missing_case_number", r.text)
+            continue
+        if application_num_returned != application_num:
+            print("Case number mismatch, retrying.")
+            dump_debug("case_number_mismatch", r.text)
+            continue
+
+        visa_type_tag = soup.find("span", id="ctl00_ContentPlaceHolder1_ucApplicationStatusView_lblAppName")
+        case_created_tag = soup.find("span", id="ctl00_ContentPlaceHolder1_ucApplicationStatusView_lblSubmitDate")
+        case_last_updated_tag = soup.find("span", id="ctl00_ContentPlaceHolder1_ucApplicationStatusView_lblStatusDate")
+        description_tag = soup.find("span", id="ctl00_ContentPlaceHolder1_ucApplicationStatusView_lblMessage")
+
+        visa_type = _text(visa_type_tag)
+        case_created = _text(case_created_tag)
+        case_last_updated = _text(case_last_updated_tag)
+        description = _text(description_tag)
 
         result.update({
             "success": True,
